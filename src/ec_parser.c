@@ -74,6 +74,8 @@ void ec_usage(void)
    fprintf(stdout, "  -f, --pcapfilter <string>   set the pcap filter <string>\n");
    fprintf(stdout, "  -R, --reversed              use reversed TARGET matching\n");
    fprintf(stdout, "  -t, --proto <proto>         sniff only this proto (default is all)\n");
+   fprintf(stdout, "      --certificate <file>    certificate file to use for SSL MiTM\n");
+   fprintf(stdout, "      --private-key <file>    private key file to use for SSL MiTM\n");
    
    fprintf(stdout, "\nUser Interface Type:\n");
    fprintf(stdout, "  -T, --text                  use text only GUI\n");
@@ -181,6 +183,8 @@ void parse_options(int argc, char **argv)
       { "broadcast", required_argument, NULL, 'b' },
       { "promisc", no_argument, NULL, 'p' },
       { "gateway", required_argument, NULL, 'Y' },
+      { "certificate", required_argument, NULL, 0 },
+      { "private-key", required_argument, NULL, 0 },
 
       
       { 0 , 0 , 0 , 0}
@@ -196,12 +200,15 @@ void parse_options(int argc, char **argv)
    GBL_FORMAT = &ascii_format;
    GBL_OPTIONS->ssl_mitm = 1;
    GBL_OPTIONS->broadcast = 0;
+   GBL_OPTIONS->ssl_cert = NULL;
+   GBL_OPTIONS->ssl_pkey = NULL;
 
 /* OPTIONS INITIALIZED */
    
    optind = 0;
+   int option_index = 0;
 
-   while ((c = getopt_long (argc, argv, "A:a:bB:CchDdEe:F:f:GhIi:j:k:L:l:M:m:n:oP:pQqiRr:s:STt:UuV:vW:w:Y:z", long_options, (int *)0)) != EOF) {
+   while ((c = getopt_long (argc, argv, "A:a:bB:CchDdEe:F:f:GhIi:j:k:L:l:M:m:n:oP:pQqiRr:s:STt:UuV:vW:w:Y:z", long_options, &option_index)) != EOF) {
       /* used for parsing arguments */
       char *opt_end = optarg;
       while (opt_end && *opt_end) opt_end++;
@@ -218,7 +225,7 @@ void parse_options(int argc, char **argv)
                   
          case 'o':
                   GBL_OPTIONS->only_mitm = 1;
-                  select_text_interface();
+                  //select_text_interface();
                   break;
 
          case 'b':
@@ -412,6 +419,19 @@ void parse_options(int argc, char **argv)
                   clean_exit(0);
                   break;
 
+        /* Certificate and private key options */
+         case 0:
+		if (!strcmp(long_options[option_index].name, "certificate")) {
+			GBL_OPTIONS->ssl_cert = strdup(optarg);	
+		} else if (!strcmp(long_options[option_index].name, "private-key")) {
+			GBL_OPTIONS->ssl_pkey = strdup(optarg);
+		} else {
+			fprintf(stdout, "\nTry `%s --help' for more options.\n\n", GBL_PROGRAM);
+			clean_exit(-1);
+		}
+
+		break;
+
          case ':': // missing parameter
             fprintf(stdout, "\nTry `%s --help' for more options.\n\n", GBL_PROGRAM);
             clean_exit(-1);
@@ -475,12 +495,14 @@ void parse_options(int argc, char **argv)
       FATAL_ERROR("Please select an User Interface");
      
    /* force text interface for only mitm attack */
+  /* Do not select text interface for only MiTM mode 
+
    if (GBL_OPTIONS->only_mitm) {
       if (GBL_OPTIONS->mitm)
          select_text_interface();
       else
          FATAL_ERROR("Only mitm requires at least one mitm method");
-   }
+   } */
 
    DEBUG_MSG("parse_options: options combination looks good");
    
