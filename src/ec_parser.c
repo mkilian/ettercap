@@ -26,12 +26,12 @@
 #include <ec_send.h>
 #include <ec_log.h>
 #include <ec_format.h>
-#include <ec_update.h>
 #include <ec_mitm.h>
 #include <ec_filter.h>
 #include <ec_plugins.h>
 #include <ec_conf.h>
 #include <ec_strings.h>
+#include <ec_encryption.h>
 
 #include <ctype.h>
 
@@ -50,8 +50,6 @@ int expand_token(char *s, u_int max, void (*func)(void *t, u_int n), void *t );
 int set_regex(char *regex);
 static char **parse_iflist(char *list);
 
-/* from the ec_wifi.c decoder */
-extern int set_wep_key(u_char *string);
 
 /*****************************************/
 
@@ -111,11 +109,10 @@ void ec_usage(void)
    fprintf(stdout, "  -z, --silent                do not perform the initial ARP scan\n");
    fprintf(stdout, "  -j, --load-hosts <file>     load the hosts list from <file>\n");
    fprintf(stdout, "  -k, --save-hosts <file>     save the hosts list to <file>\n");
-   fprintf(stdout, "  -W, --wep-key <wkey>        use this wep key to decrypt wifi packets\n");
+   fprintf(stdout, "  -W, --wifi-key <wkey>       use this key to decrypt wifi packets (wep or wpa)\n");
    fprintf(stdout, "  -a, --config <config>       use the alterative config file <config>\n");
    
    fprintf(stdout, "\nStandard options:\n");
-   fprintf(stdout, "  -U, --update                updates the databases from ettercap website\n");
    fprintf(stdout, "  -v, --version               prints the version and exit\n");
    fprintf(stdout, "  -h, --help                  this help screen\n");
 
@@ -133,7 +130,6 @@ void parse_options(int argc, char **argv)
    static struct option long_options[] = {
       { "help", no_argument, NULL, 'h' },
       { "version", no_argument, NULL, 'v' },
-      { "update", no_argument, NULL, 'U' },
       
       { "iface", required_argument, NULL, 'i' },
       { "lifaces", no_argument, NULL, 'I' },
@@ -158,7 +154,7 @@ void parse_options(int argc, char **argv)
       { "nosslmitm", no_argument, NULL, 'S' },
       { "load-hosts", required_argument, NULL, 'j' },
       { "save-hosts", required_argument, NULL, 'k' },
-      { "wep-key", required_argument, NULL, 'W' },
+      { "wifi-key", required_argument, NULL, 'W' },
       { "config", required_argument, NULL, 'a' },
       
       { "dns", no_argument, NULL, 'd' },
@@ -208,12 +204,12 @@ void parse_options(int argc, char **argv)
    optind = 0;
    int option_index = 0;
 
-   while ((c = getopt_long (argc, argv, "A:a:bB:CchDdEe:F:f:GhIi:j:k:L:l:M:m:n:oP:pQqiRr:s:STt:UuV:vW:w:Y:z", long_options, &option_index)) != EOF) {
+   while ((c = getopt_long (argc, argv, "A:a:bB:CchDdEe:F:f:GhIi:j:k:L:l:M:m:n:oP:pQqiRr:s:STt:uV:vW:w:Y:z", long_options, &option_index)) != EOF) {
       /* used for parsing arguments */
       char *opt_end = optarg;
       while (opt_end && *opt_end) opt_end++;
       /* enable a loaded filter script? */
-      uint8_t f_enabled = 0;
+      uint8_t f_enabled = 1;
 
       switch (c) {
 
@@ -396,20 +392,13 @@ void parse_options(int argc, char **argv)
                   break;
                   
          case 'W':
-                  set_wep_key(optarg);
+                  wifi_key_prepare(optarg);
                   break;
                   
          case 'a':
                   GBL_CONF->file = strdup(optarg);
                   break;
          
-         case 'U':
-                  /* load the conf for the connect timeout value */
-                  load_conf();
-                  global_update();
-                  /* NOT REACHED */
-                  break;
-                  
          case 'h':
                   ec_usage();
                   break;

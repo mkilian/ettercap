@@ -21,6 +21,7 @@
 
 #include <ec.h>
 #include <ec_decode.h>
+#include <ec_capture.h>
 #include <ec_dissect.h>
 
 #ifdef HAVE_OPENSSL
@@ -73,6 +74,7 @@ struct ppp_chap_challenge {
 /* protos */
 
 FUNC_DECODER(decode_ppp);
+FUNC_ALIGNER(align_ppp);
 void ppp_init(void);
 
 /*******************************************/
@@ -84,6 +86,8 @@ void ppp_init(void);
 
 void __init ppp_init(void)
 {
+   add_decoder(LINK_LAYER, IL_TYPE_PPP, decode_ppp);
+   add_aligner(IL_TYPE_PPP, align_ppp);
    dissect_add("ppp", NET_LAYER, LL_TYPE_PPP, decode_ppp);
 }
 
@@ -95,8 +99,9 @@ FUNC_DECODER(decode_ppp)
    struct ppp_chap_challenge *chapch;
    u_int16 proto;
    u_int32 i;
-   u_char user[128], dummy[3], auth_len, temp[128], *pap_auth;
-   static u_char  version=0, schallenge[512];
+   u_char auth_len;
+   char user[128], dummy[3], temp[128], *pap_auth;
+   static char version=0, schallenge[512];
 #ifdef HAVE_OPENSSL
    u_char digest[SHA_DIGEST_LENGTH];
    SHA_CTX ctx;
@@ -199,7 +204,7 @@ FUNC_DECODER(decode_ppp)
 
             } else if (version == 2) {
 #ifdef HAVE_OPENSSL
-               u_char *p;
+               char *p;
 
                if ((p = strchr(user, '\\')) == NULL)
                   p = user;
@@ -281,6 +286,11 @@ FUNC_DECODER(decode_ppp)
    return NULL;
 }
 
+FUNC_ALIGNER(align_ppp)
+{
+    // should be file only. nothing to align
+    return 0;
+}
 
 /* EOF */
 
